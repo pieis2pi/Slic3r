@@ -1,4 +1,6 @@
 #include "PrintConfig.hpp"
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/thread.hpp>
 
 namespace Slic3r {
@@ -23,6 +25,7 @@ PrintConfigDef::PrintConfigDef()
     
     def = this->add("avoid_crossing_perimeters", coBool);
     def->label = "Avoid crossing perimeters";
+    def->category = "Layers and Perimeters";
     def->tooltip = "Optimize travel moves in order to minimize the crossing of perimeters. This is mostly useful with Bowden extruders which suffer from oozing. This feature slows down both the print and the G-code generation.";
     def->cli = "avoid-crossing-perimeters!";
     def->default_value = new ConfigOptionBool(false);
@@ -61,6 +64,15 @@ PrintConfigDef::PrintConfigDef()
     def->height = 50;
     def->default_value = new ConfigOptionString("");
 
+    def = this->add("between_objects_gcode", coString);
+    def->label = "Between objects G-code";
+    def->tooltip = "This code is inserted between objects when using sequential printing. By default extruder and bed temperature are reset using non-wait command; however if M104, M109, M140 or M190 are detected in this custom code, Slic3r will not add temperature commands. Note that you can use placeholder variables for all Slic3r settings, so you can put a \"M109 S[first_layer_temperature]\" command wherever you want.";
+    def->cli = "between-objects-gcode=s";
+    def->multiline = true;
+    def->full_width = true;
+    def->height = 120;
+    def->default_value = new ConfigOptionString("");
+
     def = this->add("bottom_infill_pattern", external_fill_pattern);
     def->label = "Bottom";
     def->full_label = "Bottom infill pattern";
@@ -80,6 +92,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("bridge_acceleration", coFloat);
     def->label = "Bridge";
+    def->category = "Speed > Acceleration";
     def->tooltip = "This is the acceleration your printer will use for bridges. Set zero to disable acceleration control for bridges.";
     def->sidetext = "mm/s²";
     def->cli = "bridge-acceleration=f";
@@ -118,6 +131,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("brim_connections_width", coFloat);
     def->label = "Brim connections width";
+    def->category = "Skirt and brim";
     def->tooltip = "If set to a positive value, straight connections will be built on the first layer between adjacent objects.";
     def->sidetext = "mm";
     def->cli = "brim-connections-width=f";
@@ -126,14 +140,20 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("brim_width", coFloat);
     def->label = "Exterior brim width";
+    def->category = "Skirt and brim";
     def->tooltip = "Horizontal width of the brim that will be printed around each object on the first layer.";
     def->sidetext = "mm";
     def->cli = "brim-width=f";
     def->min = 0;
     def->default_value = new ConfigOptionFloat(0);
+    
+    def = this->add("compatible_printers", coStrings);
+    def->label = "Compatible printers";
+    def->default_value = new ConfigOptionStrings();
 
     def = this->add("complete_objects", coBool);
     def->label = "Complete individual objects";
+    def->category = "Advanced";
     def->tooltip = "When printing multiple objects or copies, this feature will complete each object before moving onto next one (and starting it from its bottom layer). This feature is useful to avoid the risk of ruined prints. Slic3r should warn and prevent you from extruder collisions, but beware.";
     def->cli = "complete-objects!";
     def->default_value = new ConfigOptionBool(false);
@@ -146,6 +166,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("default_acceleration", coFloat);
     def->label = "Default";
+    def->category = "Speed > Acceleration";
     def->tooltip = "This is the acceleration your printer will be reset to after the role-specific acceleration values are used (perimeter/infill). Set zero to prevent resetting acceleration at all.";
     def->sidetext = "mm/s²";
     def->cli = "default-acceleration=f";
@@ -499,6 +520,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("first_layer_acceleration", coFloat);
     def->label = "First layer";
+    def->category = "Speed > Acceleration";
     def->tooltip = "This is the acceleration your printer will use for first layer. Set zero to disable acceleration control for first layer.";
     def->sidetext = "mm/s²";
     def->cli = "first-layer-acceleration=f";
@@ -537,6 +559,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("first_layer_speed", coFloatOrPercent);
     def->label = "First layer speed";
+    def->category = "Speed";
     def->tooltip = "If expressed as absolute value in mm/s, this speed will be applied to all the print moves of the first layer, regardless of their type. If expressed as a percentage (for example: 40%) it will scale the default speeds.";
     def->sidetext = "mm/s or %";
     def->cli = "first-layer-speed=s";
@@ -608,6 +631,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("infill_acceleration", coFloat);
     def->label = "Infill";
+    def->category = "Speed > Acceleration";
     def->tooltip = "This is the acceleration your printer will use for infill. Set zero to disable acceleration control for infill.";
     def->sidetext = "mm/s²";
     def->cli = "infill-acceleration=f";
@@ -646,6 +670,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("infill_first", coBool);
     def->label = "Infill before perimeters";
+    def->category = "Infill";
     def->tooltip = "This option will switch the print order of perimeters and infill, making the latter first.";
     def->cli = "infill-first!";
     def->default_value = new ConfigOptionBool(false);
@@ -682,6 +707,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("interior_brim_width", coFloat);
     def->label = "Interior brim width";
+    def->category = "Skirt and brim";
     def->tooltip = "Horizontal width of the brim that will be printed inside object holes on the first layer.";
     def->sidetext = "mm";
     def->cli = "interior-brim-width=f";
@@ -724,6 +750,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("max_print_speed", coFloat);
     def->label = "Max print speed";
+    def->category = "Speed";
     def->tooltip = "When setting other speed settings to 0 Slic3r will autocalculate the optimal speed in order to keep constant extruder pressure. This experimental setting is used to set the highest print speed you want to allow.";
     def->sidetext = "mm/s";
     def->cli = "max-print-speed=f";
@@ -732,7 +759,8 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("max_volumetric_speed", coFloat);
     def->label = "Max volumetric speed";
-    def->tooltip = "This experimental setting is used to set the maximum volumetric speed your extruder supports.";
+    def->category = "Speed";
+    def->tooltip = "If set to a non-zero value, extrusion will be limited to this volumetric speed. You may want to set it to your extruder maximum. As a hint, you can read calculated volumetric speeds in the comments of any G-code file you export from Slic3r.";
     def->sidetext = "mm³/s";
     def->cli = "max-volumetric-speed=f";
     def->min = 0;
@@ -757,6 +785,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("min_skirt_length", coFloat);
     def->label = "Minimum extrusion length";
+    def->category = "Skirt and brim";
     def->tooltip = "Generate no less than the number of skirt loops required to consume the specified amount of filament on the bottom layer. For multi-extruder machines, this minimum applies to each extruder.";
     def->sidetext = "mm";
     def->cli = "min-skirt-length=f";
@@ -788,7 +817,7 @@ PrintConfigDef::PrintConfigDef()
     def->tooltip = "Slic3r can upload G-code files to OctoPrint. This field should contain the API Key required for authentication.";
     def->cli = "octoprint-apikey=s";
     def->default_value = new ConfigOptionString("");
-    
+
     def = this->add("octoprint_host", coString);
     def->label = "Host or IP";
     def->tooltip = "Slic3r can upload G-code files to OctoPrint. This field should contain the hostname or IP address of the OctoPrint instance.";
@@ -797,12 +826,15 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("only_retract_when_crossing_perimeters", coBool);
     def->label = "Only retract when crossing perimeters";
+    def->category = "Layers and Perimeters";
     def->tooltip = "Disables retraction when the travel path does not exceed the upper layer's perimeters (and thus any ooze will be probably invisible).";
     def->cli = "only-retract-when-crossing-perimeters!";
     def->default_value = new ConfigOptionBool(true);
 
     def = this->add("ooze_prevention", coBool);
     def->label = "Enable";
+    def->full_label = "Ooze Prevention";
+    def->category = "Extruders";
     def->tooltip = "During multi-extruder prints, this option will drop the temperature of the inactive extruders to prevent oozing. It will enable a tall skirt automatically and move extruders outside such skirt when changing temperatures.";
     def->cli = "ooze-prevention!";
     def->default_value = new ConfigOptionBool(false);
@@ -820,9 +852,18 @@ PrintConfigDef::PrintConfigDef()
     def->tooltip = "Experimental option to adjust flow for overhangs (bridge flow will be used), to apply bridge speed to them and enable fan.";
     def->cli = "overhangs|detect-bridging-perimeters!";
     def->default_value = new ConfigOptionBool(true);
+    
+    def = this->add("overridable", coStrings);
+    def->label = "Overridable options";
+    {
+        ConfigOptionStrings* opt = new ConfigOptionStrings();
+        opt->values.push_back("support_material");
+        def->default_value = opt;
+    }
 
     def = this->add("perimeter_acceleration", coFloat);
     def->label = "Perimeters";
+    def->category = "Speed > Acceleration";
     def->tooltip = "This is the acceleration your printer will use for perimeters. A high value like 9000 usually gives good results if your hardware is up to the job. Set zero to disable acceleration control for perimeters.";
     def->sidetext = "mm/s²";
     def->cli = "perimeter-acceleration=f";
@@ -880,6 +921,20 @@ PrintConfigDef::PrintConfigDef()
     def->multiline = true;
     def->full_width = true;
     def->height = 60;
+    def->default_value = new ConfigOptionStrings();
+
+    def = this->add("printer_notes", coStrings);
+    def->label = "Printer notes";
+    def->tooltip = "You can put your notes regarding the printer here.";
+    def->cli = "printer-notes=s@";
+    def->multiline = true;
+    def->full_width = true;
+    def->height = 130;
+    {
+        ConfigOptionStrings* opt = new ConfigOptionStrings();
+        opt->values.push_back("");
+        def->default_value = opt;
+    }
 
     def = this->add("print_settings_id", coString);
     def->default_value = new ConfigOptionString("");
@@ -889,6 +944,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("pressure_advance", coFloat);
     def->label = "Pressure advance";
+    def->category = "Extruder";
     def->tooltip = "When set to a non-zero value, this experimental option enables pressure regulation. It's the K constant for the advance algorithm that pushes more or less filament upon speed changes. It's useful for Bowden-tube extruders. Reasonable values are in range 0-10.";
     def->cli = "pressure-advance=f";
     def->min = 0;
@@ -922,6 +978,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("retract_before_travel", coFloats);
     def->label = "Minimum travel after retraction";
+    def->category = "Retraction";
     def->tooltip = "Retraction is not triggered when travel moves are shorter than this length.";
     def->sidetext = "mm";
     def->cli = "retract-before-travel=f@";
@@ -933,6 +990,7 @@ PrintConfigDef::PrintConfigDef()
     
     def = this->add("retract_layer_change", coBools);
     def->label = "Retract on layer change";
+    def->category = "Retraction";
     def->tooltip = "This flag enforces a retraction whenever a Z move is done.";
     def->cli = "retract-layer-change!";
     {
@@ -943,6 +1001,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("retract_length", coFloats);
     def->label = "Length";
+    def->category = "Retraction";
     def->full_label = "Retraction Length";
     def->tooltip = "When retraction is triggered, filament is pulled back by the specified amount (the length is measured on raw filament, before it enters the extruder).";
     def->sidetext = "mm (zero to disable)";
@@ -967,6 +1026,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("retract_lift", coFloats);
     def->label = "Lift Z";
+    def->category = "Retraction";
     def->tooltip = "If you set this to a positive value, Z is quickly raised every time a retraction is triggered. When using multiple extruders, only the setting for the first extruder will be considered.";
     def->sidetext = "mm";
     def->cli = "retract-lift=f@";
@@ -979,6 +1039,7 @@ PrintConfigDef::PrintConfigDef()
     def = this->add("retract_lift_above", coFloats);
     def->label = "Above Z";
     def->full_label = "Only lift Z above";
+    def->category = "Retraction";
     def->tooltip = "If you set this to a positive value, Z lift will only take place above the specified absolute Z. You can tune this setting for skipping lift on the first layers.";
     def->sidetext = "mm";
     def->cli = "retract-lift-above=f@";
@@ -991,6 +1052,7 @@ PrintConfigDef::PrintConfigDef()
     def = this->add("retract_lift_below", coFloats);
     def->label = "Below Z";
     def->full_label = "Only lift Z below";
+    def->category = "Retraction";
     def->tooltip = "If you set this to a positive value, Z lift will only take place below the specified absolute Z. You can tune this setting for limiting lift to the first layers.";
     def->sidetext = "mm";
     def->cli = "retract-lift-below=f@";
@@ -1002,6 +1064,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("retract_restart_extra", coFloats);
     def->label = "Extra length on restart";
+    def->category = "Retraction";
     def->tooltip = "When the retraction is compensated after the travel move, the extruder will push this additional amount of filament. This setting is rarely needed.";
     def->sidetext = "mm";
     def->cli = "retract-restart-extra=f@";
@@ -1024,7 +1087,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("retract_speed", coFloats);
     def->label = "Speed";
-    def->full_label = "Retraction Speed";
+    def->category = "Retraction";
     def->tooltip = "The speed for retractions (it only applies to the extruder motor). If you use the Firmware Retraction option, please note this value still affects the auto-speed pressure regulator.";
     def->sidetext = "mm/s";
     def->cli = "retract-speed=f@";
@@ -1036,7 +1099,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("seam_position", coEnum);
     def->label = "Seam position";
-    def->category = "Layers and perimeters";
+    def->category = "Layers and Perimeters";
     def->tooltip = "Position of perimeters starting points.";
     def->cli = "seam-position=s";
     def->enum_keys_map = ConfigOptionEnum<SeamPosition>::get_enum_values();
@@ -1067,12 +1130,14 @@ PrintConfigDef::PrintConfigDef()
     def->cli = "serial-speed=i";
     def->min = 1;
     def->max = 300000;
+    def->enum_values.push_back("57600");
     def->enum_values.push_back("115200");
     def->enum_values.push_back("250000");
     def->default_value = new ConfigOptionInt(250000);
 
     def = this->add("skirt_distance", coFloat);
     def->label = "Distance from object";
+    def->category = "Skirt and brim";
     def->tooltip = "Distance between skirt and object(s). Set this to zero to attach the skirt to the object(s) and get a brim for better adhesion.";
     def->sidetext = "mm";
     def->cli = "skirt-distance=f";
@@ -1081,6 +1146,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("skirt_height", coInt);
     def->label = "Skirt height";
+    def->category = "Skirt and brim";
     def->tooltip = "Height of skirt expressed in layers. Set this to a tall value to use skirt as a shield against drafts.";
     def->sidetext = "layers";
     def->cli = "skirt-height=i";
@@ -1088,6 +1154,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("skirts", coInt);
     def->label = "Loops (minimum)";
+    def->category = "Skirt and brim";
     def->full_label = "Skirt Loops";
     def->tooltip = "Number of loops for the skirt. If the Minimum Extrusion Length option is set, the number of loops might be greater than the one configured here. Set this to zero to disable skirt completely.";
     def->cli = "skirts=i";
@@ -1182,12 +1249,15 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("spiral_vase", coBool);
     def->label = "Spiral vase";
+    def->category = "Layers and Perimeters";
     def->tooltip = "This feature will raise Z gradually while printing a single-walled object in order to remove any visible seam. This option requires a single perimeter, no infill, no top solid layers and no support material. You can still set any number of bottom solid layers as well as skirt/brim loops. It won't work when printing more than an object.";
     def->cli = "spiral-vase!";
     def->default_value = new ConfigOptionBool(false);
 
     def = this->add("standby_temperature_delta", coInt);
     def->label = "Temperature variation";
+    def->full_label = "Standby temperature delta";
+    def->category = "Extruders";
     def->tooltip = "Temperature difference to be applied when an extruder is not active.  Enables a full-height \"sacrificial\" skirt on which the nozzles are periodically wiped.";
     def->sidetext = "∆°C";
     def->cli = "standby-temperature-delta=i";
@@ -1233,6 +1303,13 @@ PrintConfigDef::PrintConfigDef()
     def->min = 0;
     def->max = 359;
     def->default_value = new ConfigOptionInt(0);
+
+    def = this->add("support_material_buildplate_only", coBool);
+    def->label = "Support on build plate only";
+    def->category = "Support material";
+    def->tooltip = "Only create support if it lies on a build plate. Don't create support on a print.";
+    def->cli = "support-material-buildplate-only!";
+    def->default_value = new ConfigOptionBool(false);
 
     def = this->add("support_material_contact_distance", coFloat);
     def->gui_type = "f_enum_open";
@@ -1306,6 +1383,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("support_material_interface_speed", coFloatOrPercent);
     def->label = "↳ interface";
+    def->label = "Interface Speed";
     def->category = "Support material interface speed";
     def->gui_type = "f_enum_open";
     def->category = "Support material";
@@ -1453,6 +1531,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("travel_speed", coFloat);
     def->label = "Travel";
+    def->category = "Speed";
     def->tooltip = "Speed for travel moves (jumps between distant extrusion points).";
     def->sidetext = "mm/s";
     def->cli = "travel-speed=f";
@@ -1488,6 +1567,7 @@ PrintConfigDef::PrintConfigDef()
 
     def = this->add("wipe", coBools);
     def->label = "Wipe while retracting";
+    def->category = "Retraction";
     def->tooltip = "This flag will move the nozzle while retracting to minimize the possible blob on leaky extruders.";
     def->cli = "wipe!";
     {
@@ -1518,7 +1598,7 @@ PrintConfigDef::PrintConfigDef()
     def->default_value = new ConfigOptionFloat(0);
 }
 
-PrintConfigDef print_config_def;
+const PrintConfigDef print_config_def;
 
 void
 DynamicPrintConfig::normalize() {
@@ -1575,6 +1655,79 @@ PrintConfigBase::min_object_distance() const
     return (this->option("complete_objects")->getBool() && extruder_clearance_radius > duplicate_distance)
         ? extruder_clearance_radius
         : duplicate_distance;
+}
+
+bool
+PrintConfigBase::set_deserialize(t_config_option_key opt_key, std::string str, bool append)
+{
+    this->_handle_legacy(opt_key, str);
+    if (opt_key.empty()) return true; // ignore option
+    return ConfigBase::set_deserialize(opt_key, str, append);
+}
+
+void
+PrintConfigBase::_handle_legacy(t_config_option_key &opt_key, std::string &value) const
+{
+    // handle legacy options
+    if (opt_key == "extrusion_width_ratio" || opt_key == "bottom_layer_speed_ratio"
+        || opt_key == "first_layer_height_ratio") {
+        boost::replace_first(opt_key, "_ratio", "");
+        if (opt_key == "bottom_layer_speed") opt_key = "first_layer_speed";
+        try {
+            float v = boost::lexical_cast<float>(value);
+            if (v != 0) 
+                value = boost::lexical_cast<std::string>(v*100) + "%";
+        } catch (boost::bad_lexical_cast &) {
+            value = "0";
+        }
+    } else if (opt_key == "gcode_flavor" && value == "makerbot") {
+        value = "makerware";
+    } else if (opt_key == "fill_density" && value.find("%") == std::string::npos) {
+        try {
+            // fill_density was turned into a percent value
+            float v = boost::lexical_cast<float>(value);
+            value = boost::lexical_cast<std::string>(v*100) + "%";
+        } catch (boost::bad_lexical_cast &) {}
+    } else if (opt_key == "randomize_start" && value == "1") {
+        opt_key = "seam_position";
+        value = "random";
+    } else if (opt_key == "bed_size" && !value.empty()) {
+        opt_key = "bed_shape";
+        ConfigOptionPoint p;
+        p.deserialize(value);
+        std::ostringstream oss;
+        oss << "0x0," << p.value.x << "x0," << p.value.x << "x" << p.value.y << ",0x" << p.value.y;
+        value = oss.str();
+    } else if ((opt_key == "perimeter_acceleration" && value == "25")
+        || (opt_key == "infill_acceleration" && value == "50")) {
+        /*  For historical reasons, the world's full of configs having these very low values;
+            to avoid unexpected behavior we need to ignore them. Banning these two hard-coded
+            values is a dirty hack and will need to be removed sometime in the future, but it
+            will avoid lots of complaints for now. */
+        value = "0";
+    }
+    
+    // cemetery of old config settings
+    if (opt_key == "duplicate_x" || opt_key == "duplicate_y" || opt_key == "multiply_x" 
+        || opt_key == "multiply_y" || opt_key == "support_material_tool" 
+        || opt_key == "acceleration" || opt_key == "adjust_overhang_flow" 
+        || opt_key == "standby_temperature" || opt_key == "scale" || opt_key == "rotate" 
+        || opt_key == "duplicate" || opt_key == "duplicate_grid" || opt_key == "rotate" 
+        || opt_key == "scale"  || opt_key == "duplicate_grid" 
+        || opt_key == "start_perimeters_at_concave_points" 
+        || opt_key == "start_perimeters_at_non_overhang" || opt_key == "randomize_start" 
+        || opt_key == "seal_position" || opt_key == "bed_size" 
+        || opt_key == "print_center" || opt_key == "g0" || opt_key == "threads")
+    {
+        opt_key = "";
+        return;
+    }
+    
+    if (!this->def->has(opt_key)) {
+        //printf("Unknown option %s\n", opt_key.c_str());
+        opt_key = "";
+        return;
+    }
 }
 
 CLIConfigDef::CLIConfigDef()
@@ -1678,6 +1831,6 @@ CLIConfigDef::CLIConfigDef()
     def->default_value = new ConfigOptionPoint3(Pointf3(0,0,0));
 }
 
-CLIConfigDef cli_config_def;
+const CLIConfigDef cli_config_def;
 
 }

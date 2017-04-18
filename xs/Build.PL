@@ -39,6 +39,19 @@ if ($^O eq 'darwin') {
     # that prevents this from happening, not needed with newer Boost versions.
     # See here for more details: https://svn.boost.org/trac/boost/ticket/7671
     push @cflags, qw(-DBOOST_THREAD_DONT_USE_CHRONO -DBOOST_NO_CXX11_RVALUE_REFERENCES -DBOOST_THREAD_USES_MOVE);
+    
+    # ExtUtils::CppGuess has a hard-coded -lstdc++, so we filter it out
+    {
+        no strict 'refs';
+        no warnings 'redefine';
+        my $func = "ExtUtils::CppGuess::_get_lflags";
+        my $orig = *$func{CODE};
+        *{$func} = sub {
+            my $lflags = $orig->(@_);
+            $lflags =~ s/\s*-lstdc\+\+//;
+            return $lflags;
+        };
+    }
 }
 if ($mswin) {
     # In case windows.h is included, we don't want the min / max macros to be active.
@@ -57,6 +70,9 @@ if (defined $ENV{BOOST_INCLUDEDIR}) {
     my $subdir = $ENV{BOOST_DIR} . (($mswin == 1) ? '\include' : '/include');
     if (-d $subdir) {
         push @boost_include, $subdir;
+    } elsif (-d "../$subdir") {
+        # User might have provided a path relative to the Build.PL in the main directory
+        push @boost_include, "../$subdir";
     } else {
         push @boost_include, $ENV{BOOST_DIR};
     }
@@ -86,6 +102,9 @@ if (defined $ENV{BOOST_LIBRARYPATH}) {
     my $subdir = $ENV{BOOST_DIR} . ($mswin ? '\stage\lib' : '/stage/lib');
     if (-d $subdir) {
         push @boost_libs, $subdir;
+    } elsif (-d "../$subdir") {
+        # User might have provided a path relative to the Build.PL in the main directory
+        push @boost_libs, "../$subdir";
     } else {
         push @boost_libs, $ENV{BOOST_DIR};
     }

@@ -296,12 +296,26 @@ template<class T>
 bool
 contains(const std::vector<T> &vector, const Point &point)
 {
-    for (typename std::vector<T>::const_iterator it = vector.begin(); it != vector.end(); ++it) {
-        if (it->contains(point)) return true;
-    }
+    for (const T &it : vector)
+        if (it.contains(point))
+            return true;
+    
     return false;
 }
+template bool contains(const Polygons &vector, const Point &point);
 template bool contains(const ExPolygons &vector, const Point &point);
+
+template<class T>
+double
+area(const std::vector<T> &vector)
+{
+    double area = 0;
+    for (const T &it : vector)
+        area += it.area();
+    
+    return area;
+}
+template double area(const Polygons &vector);
 
 double
 rad2deg(double angle)
@@ -609,6 +623,13 @@ MedialAxis::process_edge_neighbors(const VD::edge_type* edge, ThickPolyline* pol
 bool
 MedialAxis::validate_edge(const VD::edge_type* edge)
 {
+    // prevent overflows and detect almost-infinite edges
+    if (std::abs(edge->vertex0()->x()) > (double)MAX_COORD
+     || std::abs(edge->vertex0()->y()) > (double)MAX_COORD
+     || std::abs(edge->vertex1()->x()) > (double)MAX_COORD
+     || std::abs(edge->vertex1()->y()) > (double)MAX_COORD)
+        return false;
+    
     // construct the line representing this edge of the Voronoi diagram
     const Line line(
         Point( edge->vertex0()->x(), edge->vertex0()->y() ),

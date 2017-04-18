@@ -2,6 +2,7 @@
 #include "Geometry.hpp"
 #include "IO.hpp"
 #include <iostream>
+#include <set>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 
@@ -92,9 +93,8 @@ Model::delete_object(size_t idx)
 void
 Model::clear_objects()
 {
-    // int instead of size_t because it can be -1 when vector is empty
-    for (int i = this->objects.size()-1; i >= 0; --i)
-        this->delete_object(i);
+    while (!this->objects.empty())
+        this->delete_object(0);
 }
 
 void
@@ -373,6 +373,43 @@ Model::print_info() const
         (*o)->print_info();
 }
 
+bool
+Model::looks_like_multipart_object() const
+{
+    if (this->objects.size() == 1) return false;
+    for (const ModelObject* o : this->objects) {
+        if (o->volumes.size() > 1) return false;
+        if (o->config.keys().size() > 1) return false;
+    }
+    
+    std::set<coordf_t> heights;
+    for (const ModelObject* o : this->objects)
+        for (const ModelVolume* v : o->volumes)
+            heights.insert(v->mesh.bounding_box().min.z);
+    return heights.size() > 1;
+}
+
+void
+Model::convert_multipart_object()
+{
+    if (this->objects.empty()) return;
+    
+    ModelObject* object = this->add_object();
+    object->input_file = this->objects.front()->input_file;
+    
+    for (const ModelObject* o : this->objects) {
+        for (const ModelVolume* v : o->volumes) {
+            ModelVolume* v2 = object->add_volume(*v);
+            v2->name = o->name;
+        }
+    }
+    for (const ModelInstance* i : this->objects.front()->instances)
+        object->add_instance(*i);
+    
+    while (this->objects.size() > 1)
+        this->delete_object(0);
+}
+
 ModelMaterial::ModelMaterial(Model *model) : model(model) {}
 ModelMaterial::ModelMaterial(Model *model, const ModelMaterial &other)
     : attributes(other.attributes), config(other.config), model(model)
@@ -467,9 +504,8 @@ ModelObject::delete_volume(size_t idx)
 void
 ModelObject::clear_volumes()
 {
-    // int instead of size_t because it can be -1 when vector is empty
-    for (int i = this->volumes.size()-1; i >= 0; --i)
-        this->delete_volume(i);
+    while (!this->volumes.empty())
+        this->delete_volume(0);
 }
 
 ModelInstance*
@@ -508,8 +544,8 @@ ModelObject::delete_last_instance()
 void
 ModelObject::clear_instances()
 {
-    for (size_t i = 0; i < this->instances.size(); ++i)
-        this->delete_instance(i);
+    while (!this->instances.empty())
+        this->delete_last_instance();
 }
 
 // this returns the bounding box of the *transformed* instances
@@ -597,6 +633,20 @@ ModelObject::instance_bounding_box(size_t instance_idx) const
         bb.merge(this->instances[instance_idx]->transform_mesh_bounding_box(&(*v)->mesh, true));
     }
     return bb;
+}
+
+void
+ModelObject::align_to_ground()
+{
+    // calculate the displacements needed to 
+    // center this object around the origin
+	BoundingBoxf3 bb;
+	for (const ModelVolume* v : this->volumes)
+		if (!v->modifier)
+			bb.merge(v->mesh.bounding_box());
+    
+    this->translate(0, 0, -bb.min.z);
+    this->origin_translation.translate(0, 0, -bb.min.z);
 }
 
 void
@@ -703,18 +753,20 @@ ModelObject::mirror(const Axis &axis)
 }
 
 void
-ModelObject::transform_by_instance(const ModelInstance &instance, bool dont_translate)
+ModelObject::transform_by_instance(ModelInstance instance, bool dont_translate)
 {
+    // We get instance by copy because we would alter it in the loop below,
+    // causing inconsistent values in subsequent instances.
     this->rotate(instance.rotation, Z);
     this->scale(instance.scaling_factor);
     if (!dont_translate)
         this->translate(instance.offset.x, instance.offset.y, 0);
     
-    for (ModelInstancePtrs::iterator i = this->instances.begin(); i != this->instances.end(); ++i) {
-        (*i)->rotation -= instance.rotation;
-        (*i)->scaling_factor /= instance.scaling_factor;
+    for (ModelInstance* i : this->instances) {
+        i->rotation -= instance.rotation;
+        i->scaling_factor /= instance.scaling_factor;
         if (!dont_translate)
-            (*i)->offset.translate(-instance.offset.x, -instance.offset.y);
+            i->offset.translate(-instance.offset.x, -instance.offset.y);
     }
     this->origin_translation = Pointf3(0,0,0);
     this->invalidate_bounding_box();

@@ -55,7 +55,10 @@ add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/Flow.cpp
     ${LIBDIR}/libslic3r/GCode.cpp
     ${LIBDIR}/libslic3r/GCode/CoolingBuffer.cpp
+    ${LIBDIR}/libslic3r/GCode/SpiralVase.cpp
+    ${LIBDIR}/libslic3r/GCodeReader.cpp
     ${LIBDIR}/libslic3r/GCodeSender.cpp
+    ${LIBDIR}/libslic3r/GCodeTimeEstimator.cpp
     ${LIBDIR}/libslic3r/GCodeWriter.cpp
     ${LIBDIR}/libslic3r/Geometry.cpp
     ${LIBDIR}/libslic3r/IO.cpp

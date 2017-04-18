@@ -12,9 +12,6 @@
 #include <vector>
 #include "libslic3r.h"
 #include "Point.hpp"
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/lexical_cast.hpp>
 
 namespace Slic3r {
 
@@ -394,27 +391,7 @@ class ConfigOptionPoints : public ConfigOptionVector<Pointf>
         return vv;
     };
     
-    bool deserialize(std::string str, bool append = false) {
-        if (!append) this->values.clear();
-        
-        std::vector<std::string> tokens;
-        boost::split(tokens, str, boost::is_any_of("x,"));
-        if (tokens.size() % 2) return false;
-        
-        try {
-            for (size_t i = 0; i < tokens.size(); ++i) {
-                Pointf point;
-                point.x = boost::lexical_cast<coordf_t>(tokens[i]);
-                point.y = boost::lexical_cast<coordf_t>(tokens[++i]);
-                this->values.push_back(point);
-            }
-        } catch (boost::bad_lexical_cast &e) {
-            printf("%s\n", e.what());
-            return false;
-        }
-        
-        return true;
-    };
+    bool deserialize(std::string str, bool append = false);
 };
 
 class ConfigOptionBool : public ConfigOptionSingle<bool>
@@ -649,6 +626,7 @@ class ConfigDef
     t_optiondef_map options;
     ConfigOptionDef* add(const t_config_option_key &opt_key, ConfigOptionType type);
     ConfigOptionDef* add(const t_config_option_key &opt_key, const ConfigOptionDef &def);
+    bool has(const t_config_option_key &opt_key) const;
     const ConfigOptionDef* get(const t_config_option_key &opt_key) const;
     void merge(const ConfigDef &other);
 };
@@ -666,16 +644,23 @@ class ConfigBase
     ConfigBase() : def(NULL) {};
     ConfigBase(const ConfigDef* def) : def(def) {};
     virtual ~ConfigBase() {};
-    bool has(const t_config_option_key &opt_key);
+    bool has(const t_config_option_key &opt_key) const;
     const ConfigOption* option(const t_config_option_key &opt_key) const;
     ConfigOption* option(const t_config_option_key &opt_key, bool create = false);
+    template<class T> T* opt(const t_config_option_key &opt_key, bool create = false) {
+        return dynamic_cast<T*>(this->option(opt_key, create));
+    };
+    template<class T> const T* opt(const t_config_option_key &opt_key) const {
+        return dynamic_cast<const T*>(this->option(opt_key));
+    };
     virtual ConfigOption* optptr(const t_config_option_key &opt_key, bool create = false) = 0;
     virtual t_config_option_keys keys() const = 0;
     void apply(const ConfigBase &other, bool ignore_nonexistent = false);
-    bool equals(ConfigBase &other);
-    t_config_option_keys diff(ConfigBase &other);
+    void apply_only(const ConfigBase &other, const t_config_option_keys &opt_keys, bool ignore_nonexistent = false);
+    bool equals(const ConfigBase &other) const;
+    t_config_option_keys diff(const ConfigBase &other) const;
     std::string serialize(const t_config_option_key &opt_key) const;
-    bool set_deserialize(const t_config_option_key &opt_key, std::string str, bool append = false);
+    virtual bool set_deserialize(t_config_option_key opt_key, std::string str, bool append = false);
     double get_abs_value(const t_config_option_key &opt_key) const;
     double get_abs_value(const t_config_option_key &opt_key, double ratio_over) const;
     void setenv_();
@@ -694,10 +679,11 @@ class DynamicConfig : public virtual ConfigBase
     DynamicConfig& operator= (DynamicConfig other);
     void swap(DynamicConfig &other);
     virtual ~DynamicConfig();
-    template<class T> T* opt(const t_config_option_key &opt_key, bool create = false);
     virtual ConfigOption* optptr(const t_config_option_key &opt_key, bool create = false);
     t_config_option_keys keys() const;
     void erase(const t_config_option_key &opt_key);
+    void clear();
+    bool empty() const;
     void read_cli(const std::vector<std::string> &tokens, t_config_option_keys* extra);
     void read_cli(const int argc, const char **argv, t_config_option_keys* extra);
     

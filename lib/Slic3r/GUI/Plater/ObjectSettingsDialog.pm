@@ -7,8 +7,8 @@ use strict;
 use warnings;
 use utf8;
 
-use Wx qw(:dialog :id :misc :sizer :systemsettings :notebook wxTAB_TRAVERSAL);
-use Wx::Event qw(EVT_BUTTON);
+use Wx qw(:dialog :id :misc :sizer :systemsettings :notebook wxTAB_TRAVERSAL wxTheApp);
+use Wx::Event qw(EVT_BUTTON EVT_MENU);
 use base 'Wx::Dialog';
 
 sub new {
@@ -53,6 +53,17 @@ sub PartSettingsChanged {
     my ($self) = @_;
     return $self->{parts}->PartSettingsChanged || $self->{layers}->LayersChanged;
 }
+sub _append_menu_item {
+    my ($self, $menu, $string, $description, $cb, $id, $icon, $kind) = @_;
+    
+    $id //= &Wx::NewId();
+    my $item = $menu->Append($id, $string, $description, $kind);
+    wxTheApp->set_menu_item_icon($item, $icon);
+    
+    EVT_MENU($self, $id, $cb);
+    return $item;
+}
+
 
 package Slic3r::GUI::Plater::ObjectDialog::BaseTab;
 use base 'Wx::Panel';
@@ -77,7 +88,7 @@ sub new {
     
     {
         my $label = Wx::StaticText->new($self, -1, "You can use this section to override the default layer height for parts of this object. Set layer height to zero to skip portions of the input file.",
-            wxDefaultPosition, [-1, 40]);
+            wxDefaultPosition, wxDefaultSize);
         $label->SetFont(Wx::SystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT));
         $sizer->Add($label, 0, wxEXPAND | wxALL, 10);
     }
@@ -90,7 +101,7 @@ sub new {
     $grid->SetColLabelValue(0, "Min Z (mm)");
     $grid->SetColLabelValue(1, "Max Z (mm)");
     $grid->SetColLabelValue(2, "Layer height (mm)");
-    $grid->SetColSize($_, 135) for 0..2;
+    $grid->SetColSize($_, -1) for 0..2;
     $grid->SetDefaultCellAlignment(wxALIGN_CENTRE, wxALIGN_CENTRE);
     
     # load data

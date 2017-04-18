@@ -103,7 +103,7 @@ class PrintConfigDef : public ConfigDef
 
 // The one and only global definition of SLic3r configuration options.
 // This definition is constant.
-extern PrintConfigDef print_config_def;
+extern const PrintConfigDef print_config_def;
 
 // Slic3r configuration storage with print_config_def assigned.
 class PrintConfigBase : public virtual ConfigBase
@@ -112,8 +112,11 @@ class PrintConfigBase : public virtual ConfigBase
     PrintConfigBase() {
         this->def = &print_config_def;
     };
-    
+    bool set_deserialize(t_config_option_key opt_key, std::string str, bool append = false);
     double min_object_distance() const;
+    
+    protected:
+    void _handle_legacy(t_config_option_key &opt_key, std::string &value) const;
 };
 
 // Slic3r dynamic configuration, used to override the configuration 
@@ -150,6 +153,7 @@ class PrintObjectConfig : public virtual StaticPrintConfig
     ConfigOptionEnum<SeamPosition>  seam_position;
     ConfigOptionBool                support_material;
     ConfigOptionInt                 support_material_angle;
+    ConfigOptionBool                support_material_buildplate_only;
     ConfigOptionFloat               support_material_contact_distance;
     ConfigOptionInt                 support_material_enforce_layers;
     ConfigOptionInt                 support_material_extruder;
@@ -180,6 +184,7 @@ class PrintObjectConfig : public virtual StaticPrintConfig
         OPT_PTR(seam_position);
         OPT_PTR(support_material);
         OPT_PTR(support_material_angle);
+        OPT_PTR(support_material_buildplate_only);
         OPT_PTR(support_material_contact_distance);
         OPT_PTR(support_material_enforce_layers);
         OPT_PTR(support_material_extruder);
@@ -287,6 +292,7 @@ class GCodeConfig : public virtual StaticPrintConfig
 {
     public:
     ConfigOptionString              before_layer_gcode;
+    ConfigOptionString              between_objects_gcode;
     ConfigOptionString              end_gcode;
     ConfigOptionStrings             end_filament_gcode;
     ConfigOptionString              extrusion_axis;
@@ -324,6 +330,7 @@ class GCodeConfig : public virtual StaticPrintConfig
     
     virtual ConfigOption* optptr(const t_config_option_key &opt_key, bool create = false) {
         OPT_PTR(before_layer_gcode);
+        OPT_PTR(between_objects_gcode);
         OPT_PTR(end_gcode);
         OPT_PTR(end_filament_gcode);
         OPT_PTR(extrusion_axis);
@@ -413,6 +420,7 @@ class PrintConfig : public GCodeConfig
     ConfigOptionString              output_filename_format;
     ConfigOptionFloat               perimeter_acceleration;
     ConfigOptionStrings             post_process;
+    ConfigOptionStrings             printer_notes;
     ConfigOptionFloat               resolution;
     ConfigOptionFloats              retract_before_travel;
     ConfigOptionBools               retract_layer_change;
@@ -475,6 +483,7 @@ class PrintConfig : public GCodeConfig
         OPT_PTR(output_filename_format);
         OPT_PTR(perimeter_acceleration);
         OPT_PTR(post_process);
+        OPT_PTR(printer_notes);
         OPT_PTR(resolution);
         OPT_PTR(retract_before_travel);
         OPT_PTR(retract_layer_change);
@@ -565,18 +574,6 @@ class SLAPrintConfig
     ConfigOptionFloat               support_material_spacing;
     ConfigOptionInt                 threads;
     
-    SLAPrintConfig() : StaticPrintConfig() {
-        this->set_defaults();
-        
-        // override some defaults
-        this->fill_density.value                = 100;
-        this->fill_pattern.value                = ipGrid;
-        this->infill_extrusion_width.value      = 0.5;
-        this->infill_extrusion_width.percent    = false;
-        this->perimeter_extrusion_width.value   = 1;
-        this->perimeter_extrusion_width.percent = false;
-    };
-    
     virtual ConfigOption* optptr(const t_config_option_key &opt_key, bool create = false) {
         OPT_PTR(fill_angle);
         OPT_PTR(fill_density);
@@ -602,7 +599,7 @@ class CLIConfigDef : public ConfigDef
     CLIConfigDef();
 };
 
-extern CLIConfigDef cli_config_def;
+extern const CLIConfigDef cli_config_def;
 
 class CLIConfig
     : public virtual ConfigBase, public StaticConfig
