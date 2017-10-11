@@ -54,7 +54,7 @@ cd - > /dev/null
 # disable parameter expansion to forward all arguments unprocessed to the VM
 set -f
 # run the VM and pass along all arguments as is
-LD_LIBRARY_PATH="$DIR/usr/lib" "${DIR}/usr/bin/perl-local" -I"${DIR}/usr/lib/local-lib/lib/perl5" "${DIR}/usr/bin/slic3r.pl" "$@"
+LD_LIBRARY_PATH="$DIR/usr/lib" "${DIR}/usr/bin/perl-local" -I"${DIR}/usr/lib/local-lib/lib/perl5" "${DIR}/usr/bin/slic3r.pl" --gui "$@"
 EOF
 
 chmod +x AppRun
@@ -68,7 +68,7 @@ Name=$APP
 Icon=$APP
 Exec=AppRun
 Categories=Graphics;
-Version=$SLIC3R_VERSION
+X-Slic3r-Version=$SLIC3R_VERSION
 Comment=Prepare 3D Models for Printing
 EOF
 
