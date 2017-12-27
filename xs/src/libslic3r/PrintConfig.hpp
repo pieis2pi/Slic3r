@@ -174,6 +174,7 @@ class PrintObjectConfig : public virtual StaticPrintConfig
     ConfigOptionInt                 support_material_extruder;
     ConfigOptionFloatOrPercent      support_material_extrusion_width;
     ConfigOptionInt                 support_material_interface_extruder;
+    ConfigOptionFloatOrPercent      support_material_interface_extrusion_width;
     ConfigOptionInt                 support_material_interface_layers;
     ConfigOptionFloat               support_material_interface_spacing;
     ConfigOptionFloatOrPercent      support_material_interface_speed;
@@ -182,6 +183,7 @@ class PrintObjectConfig : public virtual StaticPrintConfig
     ConfigOptionFloat               support_material_speed;
     ConfigOptionFloatOrPercent      support_material_threshold;
     ConfigOptionFloat               xy_size_compensation;
+    ConfigOptionInt                 sequential_print_priority;
     
     PrintObjectConfig(bool initialize = true) : StaticPrintConfig() {
         if (initialize)
@@ -209,6 +211,7 @@ class PrintObjectConfig : public virtual StaticPrintConfig
         OPT_PTR(support_material_extruder);
         OPT_PTR(support_material_extrusion_width);
         OPT_PTR(support_material_interface_extruder);
+        OPT_PTR(support_material_interface_extrusion_width);
         OPT_PTR(support_material_interface_layers);
         OPT_PTR(support_material_interface_spacing);
         OPT_PTR(support_material_interface_speed);
@@ -217,6 +220,7 @@ class PrintObjectConfig : public virtual StaticPrintConfig
         OPT_PTR(support_material_speed);
         OPT_PTR(support_material_threshold);
         OPT_PTR(xy_size_compensation);
+        OPT_PTR(sequential_print_priority);
         
         return NULL;
     };
