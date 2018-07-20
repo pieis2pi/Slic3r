@@ -46,7 +46,7 @@ Flow::spacing() const {
     }
     
     // rectangle with semicircles at the ends
-    float min_flow_spacing = this->width - this->height * (1 - PI/4.0);
+    float min_flow_spacing = this->width - this->height * (1.0 - PI/4.0);
     return this->width - OVERLAP_FACTOR * (this->width - min_flow_spacing);
 }
 
@@ -64,10 +64,10 @@ Flow::spacing(const Flow &other) const {
     assert(this->bridge == other.bridge);
     
     if (this->bridge) {
-        return this->width/2 + other.width/2 + BRIDGE_EXTRA_SPACING;
+        return this->width/2.0 + other.width/2.0 + BRIDGE_EXTRA_SPACING;
     }
     
-    return this->spacing()/2 + other.spacing()/2;
+    return this->spacing()/2.0 + other.spacing()/2.0;
 }
 
 /* This method returns extrusion volume per head move unit. */
@@ -96,12 +96,12 @@ Flow::_auto_width(FlowRole role, float nozzle_diameter, float height) {
     float width = ((nozzle_diameter*nozzle_diameter) * PI + (height*height) * (4.0 - PI)) / (4.0 * height);
     
     float min = nozzle_diameter * 1.05;
-    float max = nozzle_diameter * 3; // cap width to 3x nozzle diameter
+    float max = nozzle_diameter * 1.25; // cap width to 1.25x nozzle diameter
     if (role == frExternalPerimeter || role == frSupportMaterial || role == frSupportMaterialInterface) {
-        min = max = nozzle_diameter;
+        min = max = nozzle_diameter*1.1;
     } else if (role != frInfill) {
-        // do not limit width for sparse infill so that we use full native flow for it
-        max = nozzle_diameter * 1.7;
+        // limit width a bit for sparse infill to avoid unwanted overextrusion.
+        max = nozzle_diameter * 1.4;
     }
     if (width > max) width = max;
     if (width < min) width = min;

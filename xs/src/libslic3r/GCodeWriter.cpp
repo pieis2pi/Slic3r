@@ -107,7 +107,7 @@ GCodeWriter::postamble() const
 std::string
 GCodeWriter::set_temperature(unsigned int temperature, bool wait, int tool) const
 {
-    
+    wait = this->config.use_set_and_wait_extruder ? true : wait;
     std::string code, comment;
     if (wait && FLAVOR_IS_NOT(gcfTeacup) && FLAVOR_IS_NOT(gcfMakerWare) && FLAVOR_IS_NOT(gcfSailfish)) {
         code = "M109";
@@ -143,6 +143,7 @@ std::string
 GCodeWriter::set_bed_temperature(unsigned int temperature, bool wait) const
 {
     std::string code, comment;
+    wait = this->config.use_set_and_wait_bed ? true : wait;
     if (wait && FLAVOR_IS_NOT(gcfTeacup)) {
         if (FLAVOR_IS(gcfMakerWare) || FLAVOR_IS(gcfSailfish)) {
             code = "M109";
@@ -290,12 +291,16 @@ GCodeWriter::set_extruder(unsigned int extruder_id)
 std::string
 GCodeWriter::toolchange(unsigned int extruder_id)
 {
+    std::ostringstream gcode;
+    
     // set the new extruder
     this->_extruder = &this->extruders.find(extruder_id)->second;
     
+    //first thing to do : reset E (because a new item is now printed or with a new extruder)
+    gcode << this->reset_e(true);
+    
     // return the toolchange command
     // if we are running a single-extruder setup, just set the extruder and return nothing
-    std::ostringstream gcode;
     if (this->multiple_extruders) {
         if (FLAVOR_IS(gcfMakerWare)) {
             gcode << "M135 T";
@@ -307,8 +312,6 @@ GCodeWriter::toolchange(unsigned int extruder_id)
         gcode << extruder_id;
         if (this->config.gcode_comments) gcode << " ; change extruder";
         gcode << "\n";
-        
-        gcode << this->reset_e(true);
     }
     return gcode.str();
 }
@@ -461,14 +464,18 @@ GCodeWriter::retract_for_toolchange()
     return this->_retract(
         this->_extruder->retract_length_toolchange(),
         this->_extruder->retract_restart_extra_toolchange(),
-        "retract for toolchange"
+        "retract for toolchange",
+        true
     );
 }
 
 std::string
-GCodeWriter::_retract(double length, double restart_extra, const std::string &comment)
+GCodeWriter::_retract(double length, double restart_extra, const std::string &comment, bool long_retract)
 {
     std::ostringstream gcode;
+    std::ostringstream outcomment;
+
+    outcomment << comment;
     
     /*  If firmware retraction is enabled, we use a fake value of 1
         since we ignore the actual configured retract_length which 
@@ -485,17 +492,20 @@ GCodeWriter::_retract(double length, double restart_extra, const std::string &co
 
     double dE = this->_extruder->retract(length, restart_extra);
     if (dE != 0) {
+        outcomment << " extruder " << this->_extruder->id;
         if (this->config.use_firmware_retraction) {
             if (FLAVOR_IS(gcfMachinekit))
-                gcode << "G22 ; retract\n";
+                gcode << "G22";
+            else if ((FLAVOR_IS(gcfRepRap) || FLAVOR_IS(gcfRepetier)) && long_retract)
+                gcode << "G10 S1";
             else
-                gcode << "G10 ; retract\n";
+                gcode << "G10";
         } else {
             gcode << "G1 " << this->_extrusion_axis << E_NUM(this->_extruder->E)
                            << " F" << this->_extruder->retract_speed_mm_min;
-            COMMENT(comment);
-            gcode << "\n";
         }
+        COMMENT(outcomment.str());
+        gcode << "\n";
     }
     
     if (FLAVOR_IS(gcfMakerWare))
@@ -516,15 +526,17 @@ GCodeWriter::unretract()
     if (dE != 0) {
         if (this->config.use_firmware_retraction) {
             if (FLAVOR_IS(gcfMachinekit))
-                 gcode << "G23 ; unretract\n";
+                 gcode << "G23";
             else
-                 gcode << "G11 ; unretract\n";
+                 gcode << "G11";
+            if (this->config.gcode_comments) gcode << " ; unretract extruder " << this->_extruder->id;
+            gcode << "\n";
             gcode << this->reset_e();
         } else {
             // use G1 instead of G0 because G0 will blend the restart with the previous travel move
             gcode << "G1 " << this->_extrusion_axis << E_NUM(this->_extruder->E)
                            << " F" << this->_extruder->retract_speed_mm_min;
-            if (this->config.gcode_comments) gcode << " ; unretract";
+            if (this->config.gcode_comments) gcode << " ; unretract extruder " << this->_extruder->id;
             gcode << "\n";
         }
     }

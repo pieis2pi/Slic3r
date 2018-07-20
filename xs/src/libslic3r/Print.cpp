@@ -77,6 +77,8 @@ void
 Print::delete_object(size_t idx)
 {
     PrintObjectPtrs::iterator i = this->objects.begin() + idx;
+    if (i >= this->objects.end()) 
+        throw InvalidObjectException();
     
     // before deleting object, invalidate all of its steps in order to 
     // invalidate all of the dependent ones in Print
@@ -288,7 +290,7 @@ Print::invalidate_step(PrintStep step)
     
     // propagate to dependent steps
     if (step == psSkirt) {
-        this->invalidate_step(psBrim);
+        invalidated |= this->invalidate_step(psBrim);
     }
     
     return invalidated;
@@ -338,7 +340,9 @@ Print::object_extruders() const
         if ((*region)->config.fill_density.value > 0)
             extruders.insert((*region)->config.infill_extruder - 1);
         
-        if ((*region)->config.top_solid_layers.value > 0 || (*region)->config.bottom_solid_layers.value > 0)
+        if ((*region)->config.top_solid_layers.value > 0
+            || (*region)->config.bottom_solid_layers.value > 0
+            || (*region)->config.min_top_bottom_shell_thickness.value > 0)
             extruders.insert((*region)->config.solid_infill_extruder - 1);
     }
     
@@ -762,6 +766,7 @@ Print::brim_flow() const
 {
     ConfigOptionFloatOrPercent width = this->config.first_layer_extrusion_width;
     if (width.value == 0) width = this->regions.front()->config.perimeter_extrusion_width;
+    if (width.value == 0) width = this->objects.front()->config.extrusion_width;
     
     /* We currently use a random region's perimeter extruder.
        While this works for most cases, we should probably consider all of the perimeter
@@ -788,6 +793,7 @@ Print::skirt_flow() const
 {
     ConfigOptionFloatOrPercent width = this->config.first_layer_extrusion_width;
     if (width.value == 0) width = this->regions.front()->config.perimeter_extrusion_width;
+    if (width.value == 0) width = this->objects.front()->config.extrusion_width;
     
     /* We currently use a random object's support material extruder.
        While this works for most cases, we should probably consider all of the support material
