@@ -16,6 +16,8 @@ SLAPrint::slice()
     TriangleMesh mesh = this->model->mesh();
     mesh.repair();
     
+    mesh.align_to_bed();
+    
     // align to origin taking raft into account
     this->bb = mesh.bounding_box();
     if (this->config.raft_layers > 0) {
@@ -24,8 +26,6 @@ SLAPrint::slice()
         this->bb.max.x += this->config.raft_offset.value;
         this->bb.max.y += this->config.raft_offset.value;
     }
-    mesh.translate(0, 0, -bb.min.z);
-    this->bb.translate(0, 0, -bb.min.z);
     
     // if we are generating a raft, first_layer_height will not affect mesh slicing
     const float lh       = this->config.layer_height.value;
@@ -63,7 +63,11 @@ SLAPrint::slice()
         fill->min_spacing   = this->config.get_abs_value("infill_extrusion_width", this->config.layer_height.value);
         fill->angle         = Geometry::deg2rad(this->config.fill_angle.value);
         fill->density       = this->config.fill_density.value/100;
-        
+
+        // Minimum spacing has a lower bound of > 0. Set to a sane default 
+        // if the user gets an invalid value here.
+        fill->min_spacing = (fill->min_spacing <= 0 ? 0.5 : fill->min_spacing);
+
         parallelize<size_t>(
             0,
             this->layers.size()-1,

@@ -1,13 +1,13 @@
-#ifndef SLIC3RXS
 #include "Config.hpp"
-#include "Log.hpp"
 
 namespace Slic3r {
 
 std::shared_ptr<Config> 
 Config::new_from_defaults() 
 { 
-    return std::make_shared<Config>();
+    std::shared_ptr<Config> my_config(std::make_shared<Config>());
+    my_config->_config.apply(FullPrintConfig());
+    return my_config;
 }
 std::shared_ptr<Config> 
 Config::new_from_defaults(std::initializer_list<std::string> init)
@@ -18,25 +18,17 @@ Config::new_from_defaults(std::initializer_list<std::string> init)
 std::shared_ptr<Config> 
 Config::new_from_defaults(t_config_option_keys init)
 {
-    auto my_config(std::make_shared<Config>());
-    for (auto& opt_key : init) {
-        if (print_config_def.has(opt_key)) {
-            const std::string value { print_config_def.get(opt_key)->default_value->serialize() };
-            my_config->set_deserialize(opt_key, value);
-        }
-    }
-
+    std::shared_ptr<Config> my_config(std::make_shared<Config>());
+    my_config->_config.set_defaults(init);
     return my_config;
 }
 
 std::shared_ptr<Config> 
-new_from_cli(const int& argc, const char* argv[])
-{
-    return std::make_shared<Config>();
+Config::new_from_ini(const std::string& inifile) 
+{ 
+    std::shared_ptr<Config> my_config(std::make_shared<Config>());
+    my_config->_config.load(inifile);
+    return my_config;
 }
 
 } // namespace Slic3r
-
-
-
-#endif // SLIC3RXS

@@ -4,6 +4,7 @@
 #include <wx/wxprec.h>
 #ifndef WX_PRECOMP
     #include <wx/wx.h>
+    #include <wx/dir.h>
 #endif
 
 #include <wx/settings.h>
@@ -155,9 +156,34 @@ inline Slic3r::Point new_scale(const wxPoint& p) { return Slic3r::Point::new_sca
 /// Singleton for UI settings.
 extern std::unique_ptr<Settings> ui_settings; 
 
-std::string trim_zeroes(std::string in);
 wxString trim_zeroes(wxString in);
 
+/// Extensible directory traversal sink, cribbed from wxwidgets docs
+class wxDirTraverserSimple : public wxDirTraverser
+{
+public:
+    std::function<void(const wxString&)> file_cb {nullptr};
+    std::function<void(const wxString&)> dir_cb {nullptr};
+    wxDirTraverserSimple() { }
+    virtual wxDirTraverseResult OnFile(const wxString& filename)
+    {
+        if (this->file_cb != nullptr) this->file_cb(filename);
+        return wxDIR_CONTINUE;
+    }
+    virtual wxDirTraverseResult OnDir(const wxString& dirname)
+    {
+        if (this->dir_cb != nullptr) this->file_cb(dirname);
+        return wxDIR_CONTINUE;
+    }
+};
+
+/// Quick implementation of grep to filter containers based on some lambda function.
+template<class T, class G>
+T grep(const T& container, G lambda_func) {
+    T result;
+    std::copy_if(container.cbegin(), container.cend(),  std::back_inserter(result), lambda_func);
+    return result;
+}
 
 }} // namespace Slic3r::GUI
 

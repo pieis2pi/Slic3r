@@ -10,6 +10,7 @@
 #include "Point.hpp"
 #include "Polygon.hpp"
 #include "ExPolygon.hpp"
+#include "TransformationMatrix.hpp"
 
 namespace Slic3r {
 
@@ -36,19 +37,34 @@ class TriangleMesh
 {
     public:
     TriangleMesh();
-    TriangleMesh(const Pointf3s &points, const std::vector<Point3> &facets);
+
+    /// Templated constructor to adapt containers that offer .data() and .size()
+    /// First argument is a container (either vector or array) of Pointf3 for the vertex data.
+    /// Second argument is container of facets (currently Point3).
+    template <typename Vertex_Cont, typename Facet_Cont>
+    TriangleMesh(const Vertex_Cont& vertices, const Facet_Cont& facets) : TriangleMesh(vertices.data(), facets.data(), facets.size()) {}
+
     TriangleMesh(const TriangleMesh &other);
-    TriangleMesh& operator= (TriangleMesh other);
+    ///  copy assignment
+    TriangleMesh& operator= (const TriangleMesh& other);
+
+    /// Move assignment
+    TriangleMesh& operator= (TriangleMesh&& other);
+    TriangleMesh(TriangleMesh&& other);
+
     void swap(TriangleMesh &other);
     ~TriangleMesh();
     void ReadSTLFile(const std::string &input_file);
-    void write_ascii(const std::string &output_file);
-    void write_binary(const std::string &output_file);
+    void write_ascii(const std::string &output_file) const;
+    void write_binary(const std::string &output_file) const;
     void repair();
     void check_topology();
     float volume();
     bool is_manifold() const;
-    void WriteOBJFile(const std::string &output_file);
+    void WriteOBJFile(const std::string &output_file) const;
+
+    /// Direct manipulators
+
     void scale(float factor);
     void scale(const Pointf3 &versor);
 
@@ -74,21 +90,29 @@ class TriangleMesh
     void rotate(double angle, const Point& center);
     void rotate(double angle, Point* center);
 
+
+    void align_to_bed();
+
+
+    /// Matrix manipulators
+    TriangleMesh get_transformed_mesh(TransformationMatrix const & trafo) const;
+    void transform(TransformationMatrix const & trafo);
+
+
     TriangleMeshPtrs split() const;
     TriangleMeshPtrs cut_by_grid(const Pointf &grid) const;
     void merge(const TriangleMesh &mesh);
     ExPolygons horizontal_projection() const;
     Polygon convex_hull();
     BoundingBoxf3 bounding_box() const;
+    BoundingBoxf3 get_transformed_bounding_box(TransformationMatrix const & trafo) const;
     void reset_repair_stats();
     bool needed_repair() const;
     size_t facets_count() const;
     void extrude_tin(float offset);
     void require_shared_vertices();
     void reverse_normals();
-
-#ifndef SLIC3RXS // Don't build these functions when also building the Perl interface.
-
+    
     /// Return a copy of the vertex array defining this mesh.
     Pointf3s vertices();
 
@@ -114,8 +138,6 @@ class TriangleMesh
 
     /// Perform a cut of the mesh and put the output in upper and lower
     void cut(Axis axis, double z, TriangleMesh* upper, TriangleMesh* lower);
-    
-#endif // SLIC3RXS
 	
 	/// Generate a mesh representing a cube with dimensions (x, y, z), with one corner at (0,0,0).
     static TriangleMesh make_cube(double x, double y, double z);
@@ -137,6 +159,15 @@ class TriangleMesh
     bool repaired;
     
     private:
+
+    /// Private constructor that is called from the public sphere. 
+    /// It doesn't do any bounds checking on points and operates on raw pointers, so we hide it. 
+    /// Other constructors can call this one!
+    TriangleMesh(const Pointf3* points, const Point3* facets, size_t n_facets); 
+
+    /// Perform the mechanics of a stl copy
+    void clone(const TriangleMesh& other);
+
     friend class TriangleMeshSlicer<X>;
     friend class TriangleMeshSlicer<Y>;
     friend class TriangleMeshSlicer<Z>;

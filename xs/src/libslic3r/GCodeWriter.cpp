@@ -21,18 +21,6 @@ GCodeWriter::apply_print_config(const PrintConfig &print_config)
     this->_extrusion_axis = this->config.get_extrusion_axis();
 }
 
-void
-GCodeWriter::set_extruders(const std::vector<unsigned int> &extruder_ids)
-{
-    for (std::vector<unsigned int>::const_iterator i = extruder_ids.begin(); i != extruder_ids.end(); ++i)
-        this->extruders.insert( std::pair<unsigned int,Extruder>(*i, Extruder(*i, &this->config)) );
-    
-    /*  we enable support for multiple extruder if any extruder greater than 0 is used
-        (even if prints only uses that one) since we need to output Tx commands
-        first extruder has index 0 */
-    this->multiple_extruders = (*std::max_element(extruder_ids.begin(), extruder_ids.end())) > 0;
-}
-
 std::string
 GCodeWriter::notes() 
 {
@@ -175,6 +163,7 @@ std::string
 GCodeWriter::set_fan(unsigned int speed, bool dont_save)
 {
     std::ostringstream gcode;
+    const double baseline_factor = (this->config.fan_percentage ? 100.0 : 255.0);
     if (this->_last_fan_speed != speed || dont_save) {
         if (!dont_save) this->_last_fan_speed = speed;
         
@@ -198,7 +187,7 @@ GCodeWriter::set_fan(unsigned int speed, bool dont_save)
                 } else {
                     gcode << "S";
                 }
-                gcode << (255.0 * speed / 100.0);
+                gcode << (baseline_factor * speed / 100.0);
             }
             if (this->config.gcode_comments) gcode << " ; enable fan";
             gcode << "\n";
@@ -321,7 +310,8 @@ GCodeWriter::set_speed(double F, const std::string &comment,
                        const std::string &cooling_marker) const
 {
     std::ostringstream gcode;
-    gcode << "G1 F" << F;
+    gcode.precision(3);
+    gcode << "G1 F" << std::fixed << F;
     COMMENT(comment);
     gcode << cooling_marker;
     gcode << "\n";

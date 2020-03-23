@@ -496,7 +496,7 @@ AMF::read(std::string input_file, Model* model)
 }
 
 bool
-AMF::write(Model& model, std::string output_file)
+AMF::write(const Model& model, std::string output_file)
 {
     using namespace std;
     
@@ -538,12 +538,14 @@ AMF::write(Model& model, std::string output_file)
         
         std::vector<size_t> vertices_offsets;
         size_t num_vertices = 0;
+
+        Pointf3 origin_translation = object->origin_translation();
         
         for (ModelVolume *volume : object->volumes) {
             volume->mesh.require_shared_vertices();
             vertices_offsets.push_back(num_vertices);
             const auto &stl = volume->mesh.stl;
-            for (size_t i = 0; i < stl.stats.shared_vertices; ++i)
+            for (size_t i = 0; i < static_cast<size_t>(stl.stats.shared_vertices); ++i)
                 // Subtract origin_translation in order to restore the coordinates of the parts
                 // before they were imported. Otherwise, when this AMF file is reimported parts
                 // will be placed in the plater correctly, but we will have lost origin_translation
@@ -552,9 +554,9 @@ AMF::write(Model& model, std::string output_file)
                 // below.
                 file << "         <vertex>" << endl
                      << "           <coordinates>" << endl
-                     << "             <x>" << (stl.v_shared[i].x - object->origin_translation.x) << "</x>" << endl
-                     << "             <y>" << (stl.v_shared[i].y - object->origin_translation.y) << "</y>" << endl
-                     << "             <z>" << (stl.v_shared[i].z - object->origin_translation.z) << "</z>" << endl
+                     << "             <x>" << (stl.v_shared[i].x - origin_translation.x) << "</x>" << endl
+                     << "             <y>" << (stl.v_shared[i].y - origin_translation.y) << "</y>" << endl
+                     << "             <z>" << (stl.v_shared[i].z - origin_translation.z) << "</z>" << endl
                      << "           </coordinates>" << endl
                      << "         </vertex>" << endl;
             
@@ -597,8 +599,8 @@ AMF::write(Model& model, std::string output_file)
         for (const ModelInstance* instance : object->instances)
             instances
                 << "    <instance objectid=\"" << object_id << "\">" << endl
-                << "      <deltax>" << instance->offset.x + object->origin_translation.x << "</deltax>" << endl
-                << "      <deltay>" << instance->offset.y + object->origin_translation.y << "</deltay>" << endl
+                << "      <deltax>" << instance->offset.x + origin_translation.x << "</deltax>" << endl
+                << "      <deltay>" << instance->offset.y + origin_translation.y << "</deltay>" << endl
                 << "      <rz>" << instance->rotation << "</rz>" << endl
                 << "      <scale>" << instance->scaling_factor << "</scale>" << endl
                 << "    </instance>" << endl;

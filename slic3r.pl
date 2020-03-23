@@ -19,6 +19,7 @@ use Time::HiRes qw(gettimeofday tv_interval);
 $|++;
 binmode STDOUT, ':utf8';
 binmode STDERR, ':utf8';
+$ENV{GDK_BACKEND} = 'x11';
 
 our %opt = ();
 my %cli_options = ();
@@ -157,7 +158,7 @@ if (@ARGV) {  # slicing from command line
             my $model = Slic3r::Model->read_from_file($file);
             $model->add_default_instances;
             my $mesh = $model->mesh;
-            $mesh->translate(0, 0, -$mesh->bounding_box->z_min);
+            $mesh->align_to_bed();
             my $upper = Slic3r::TriangleMesh->new;
             my $lower = Slic3r::TriangleMesh->new;
             $mesh->cut(Z, $opt{cut}, $upper, $lower);
@@ -178,8 +179,8 @@ if (@ARGV) {  # slicing from command line
             my $model = Slic3r::Model->read_from_file($file);
             $model->add_default_instances;
             my $mesh = $model->mesh;
+            $mesh->align_to_bed();
             my $bb = $mesh->bounding_box;
-            $mesh->translate(0, 0, -$bb->z_min);
             
             my $x_parts = ceil(($bb->size->x - epsilon)/$grid_x);
             my $y_parts = ceil(($bb->size->y - epsilon)/$grid_y); #--
@@ -553,6 +554,8 @@ $j
                         of filament on the first layer, for each extruder (mm, 0+, default: $config->{min_skirt_length})
     --brim-width        Width of the brim that will get added to each object to help adhesion
                         (mm, default: $config->{brim_width})
+    --brim-ears         Print brim only on sharp corners.
+    --brim-ears-max-angle Maximum angle considered for adding brim ears. (degrees, default: $config->{brim_ears_max_angle})
     --interior-brim-width  Width of the brim that will get printed inside object holes to help adhesion
                         (mm, default: $config->{interior_brim_width})
    

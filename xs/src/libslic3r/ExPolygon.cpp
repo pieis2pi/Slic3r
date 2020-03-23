@@ -130,6 +130,14 @@ ExPolygon::has_boundary_point(const Point &point) const
 }
 
 void
+ExPolygon::remove_colinear_points()
+{
+    this->contour.remove_collinear_points();
+    for (Polygon &p : this->holes)
+        p.remove_collinear_points();
+}
+
+void
 ExPolygon::remove_vertical_collinear_points(coord_t tolerance)
 {
     this->contour.remove_vertical_collinear_points(tolerance);
@@ -314,7 +322,6 @@ ExPolygon::medial_axis(const ExPolygon &bounds, double max_width, double min_wid
     
     // Loop through all returned polylines in order to extend their endpoints to the 
     //   expolygon boundaries
-    bool removed = false;
     for (size_t i = 0; i < pp.size(); ++i) {
         ThickPolyline& polyline = pp[i];
         
@@ -414,7 +421,6 @@ ExPolygon::medial_axis(const ExPolygon &bounds, double max_width, double min_wid
             && polyline.length() < max_w * 2) {
             pp.erase(pp.begin() + i);
             --i;
-            removed = true;
             continue;
         }
 
