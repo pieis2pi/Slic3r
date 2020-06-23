@@ -10,7 +10,7 @@ option(PROFILE "Build with gprof profiling output." OFF)
 option(COVERAGE "Build with gcov code coverage profiling." OFF)
 
 # only on newer GCCs: -ftemplate-backtrace-limit=0
-add_compile_options(-DNO_PERL  -DM_PI=3.14159265358979323846 -D_GLIBCXX_USE_C99 -DHAS_BOOL -DNOGDI -DBOOST_ASIO_DISABLE_KQUEUE)
+add_compile_options(-DNO_PERL -DM_PI=3.14159265358979323846 -DHAS_BOOL -DNOGDI -DBOOST_ASIO_DISABLE_KQUEUE)
 
 if (MSVC)
     add_compile_options(-W3)
@@ -315,6 +315,7 @@ set(SLIC3R_TEST_SOURCES
     ${TESTDIR}/libslic3r/test_printobject.cpp
     ${TESTDIR}/libslic3r/test_skirt_brim.cpp
     ${TESTDIR}/libslic3r/test_test_data.cpp
+    ${TESTDIR}/libslic3r/test_transformationmatrix.cpp
     ${TESTDIR}/libslic3r/test_trianglemesh.cpp
     ${TESTDIR}/libslic3r/test_extrusion_entity.cpp
     ${TESTDIR}/libslic3r/test_3mf.cpp
