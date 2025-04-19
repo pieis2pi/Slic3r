@@ -13,14 +13,23 @@
 #include <math.h>
 #include <assert.h>
 #include <stdexcept>
+#include <boost/version.hpp>
 #include <boost/config.hpp>
 #include <boost/nowide/convert.hpp>
+#if BOOST_VERSION >= 107300
+#include <boost/bind/bind.hpp>
+#endif
 
 #ifdef SLIC3R_DEBUG
 #include "SVG.hpp"
 #endif
 
 namespace Slic3r {
+
+
+#if BOOST_VERSION >= 107300
+using boost::placeholders::_1;
+#endif
 
 TriangleMesh::TriangleMesh()
     : repaired(false)
@@ -1650,7 +1659,7 @@ TriangleMeshSlicer<A>::TriangleMeshSlicer(TriangleMesh* _mesh) : mesh(_mesh), v_
 template <Axis A>
 TriangleMeshSlicer<A>::~TriangleMeshSlicer()
 {
-    if (this->v_scaled_shared != NULL) free(this->v_scaled_shared);
+    free(this->v_scaled_shared);
 }
 
 template class TriangleMeshSlicer<X>;
